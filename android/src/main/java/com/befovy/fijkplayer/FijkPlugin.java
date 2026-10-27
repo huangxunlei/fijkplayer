@@ -226,11 +226,11 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
     }
 
 
-    private void initWithRegistrar(@NonNull Registrar registrar) {
-        mRegistrar = registrar;
-        mContext = new WeakReference<>(registrar.activeContext());
-        init(registrar.messenger());
-    }
+    // private void initWithRegistrar(@NonNull Registrar registrar) {
+    //     mRegistrar = registrar;
+    //     mContext = new WeakReference<>(registrar.activeContext());
+    //     init(registrar.messenger());
+    // }
 
     private void initWithBinding(@NonNull FlutterPluginBinding binding) {
         mBinding = binding;
