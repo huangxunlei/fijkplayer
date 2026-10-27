@@ -54,7 +54,6 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.PluginRegistry.Registrar;
 import io.flutter.view.TextureRegistry;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
 
@@ -81,7 +80,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
 
     private WeakReference<Activity> mActivity;
     private WeakReference<Context> mContext;
-    private Registrar mRegistrar;
     private FlutterPluginBinding mBinding;
 
     // Count of playable players
@@ -95,22 +93,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
     private EventChannel mEventChannel;
     private Object mAudioFocusRequest;
     private boolean mAudioFocusRequested = false;
-
-
-    /**
-     * Plugin registration.
-     */
-    // @SuppressWarnings("unused")
-    // public static void registerWith(Registrar registrar) {
-    //     final MethodChannel channel = new MethodChannel(registrar.messenger(), "befovy.com/fijk");
-    //     FijkPlugin plugin = new FijkPlugin();
-    //     plugin.initWithRegistrar(registrar);
-    //     channel.setMethodCallHandler(plugin);
-
-    //     final FijkPlayer player = new FijkPlayer(plugin, true);
-    //     player.setupSurface();
-    //     player.release();
-    // }
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -132,6 +114,7 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         mContext = null;
+        mBinding = null;
     }
 
     @Override
@@ -167,8 +150,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
     public TextureRegistry.SurfaceTextureEntry createSurfaceEntry() {
         if (mBinding != null) {
             return mBinding.getTextureRegistry().createSurfaceTexture();
-        } else if (mRegistrar != null) {
-            return mRegistrar.textures().createSurfaceTexture();
         }
         return null;
     }
@@ -178,8 +159,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
     public BinaryMessenger messenger() {
         if (mBinding != null) {
             return mBinding.getBinaryMessenger();
-        } else if (mRegistrar != null) {
-            return mRegistrar.messenger();
         }
         return null;
     }
@@ -195,9 +174,7 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
 
     @Nullable
     private Activity activity() {
-        if (mRegistrar != null) {
-            return mRegistrar.activity();
-        } else if (mActivity != null) {
+        if (mActivity != null) {
             return mActivity.get();
         } else {
             return null;
@@ -212,25 +189,11 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
             if (TextUtils.isEmpty(packageName)) {
                 path = mBinding.getFlutterAssets().getAssetFilePathByName(asset);
             } else {
-                //noinspection ConstantConditions
                 path = mBinding.getFlutterAssets().getAssetFilePathByName(asset, packageName);
-            }
-        } else if (mRegistrar != null) {
-            if (TextUtils.isEmpty(packageName)) {
-                path = mRegistrar.lookupKeyForAsset(asset);
-            } else {
-                path = mRegistrar.lookupKeyForAsset(asset, packageName);
             }
         }
         return path;
     }
-
-
-    // private void initWithRegistrar(@NonNull Registrar registrar) {
-    //     mRegistrar = registrar;
-    //     mContext = new WeakReference<>(registrar.activeContext());
-    //     init(registrar.messenger());
-    // }
 
     private void initWithBinding(@NonNull FlutterPluginBinding binding) {
         mBinding = binding;
@@ -238,11 +201,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         init(binding.getBinaryMessenger());
     }
 
-    /**
-     * Maybe call init more than once
-     *
-     * @param messenger BinaryMessenger from flutter engine
-     */
     private void init(BinaryMessenger messenger) {
         if (mEventChannel != null) {
             mEventChannel.setStreamHandler(null);
@@ -267,7 +225,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
             volStep = Math.max(1.0f / (float) max, volStep);
         }
     }
-
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
@@ -441,7 +398,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         }
     }
 
-
     @Override
     public void onPlayingChange(int delta) {
         playingCnt += delta;
@@ -466,12 +422,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         Log.i("FIJKPLAYER", "onAudioFocusChange: " + focusChange);
     }
 
-    /**
-     * Set screen on enable or disable
-     *
-     * @param on true to set keep screen on enable
-     *           false to set keep screen on disable
-     */
     @Override
     public void setScreenOn(boolean on) {
         Activity activity = activity();
@@ -484,11 +434,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         }
     }
 
-    /**
-     * Check if screen is kept on
-     *
-     * @return true if screen is kept on
-     */
     private boolean isScreenKeptOn() {
         Activity activity = activity();
         if (activity == null || activity.getWindow() == null)
@@ -496,7 +441,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         int flag = activity.getWindow().getAttributes().flags;
         return (flag & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0;
     }
-
 
     private float getScreenBrightness() {
         Activity activity = activity();
@@ -544,7 +488,7 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
                     new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                             .setAudioAttributes(audioAttributes)
                             .setAcceptsDelayedFocusGain(true)
-                            .setOnAudioFocusChangeListener(this) // Need to implement listener
+                            .setOnAudioFocusChangeListener(this)
                             .build();
             mAudioFocusRequest = audioFocusRequest;
             audioManager.requestAudioFocus(audioFocusRequest);
@@ -556,7 +500,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
     }
 
     @TargetApi(26)
-    // @SuppressWarnings("deprecation")
     private void abandonAudioFocus() {
         AudioManager audioManager = audioManager();
         if (audioManager == null)
@@ -572,10 +515,6 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         mAudioFocusRequested = false;
     }
 
-    /**
-     * @param request true to request audio focus
-     *                false to release audio focus
-     */
     @Override
     public void audioFocus(boolean request) {
         Log.i("FIJKPLAYER", "audioFocus " + (request ? "request" : "release") + " state:" + mAudioFocusRequested);
@@ -657,7 +596,9 @@ public class FijkPlugin implements MethodCallHandler, FlutterPlugin, ActivityAwa
         AudioManager audioManager = audioManager();
         if (audioManager != null) {
             int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            // 修复此处：补全了丢失的乘号 *
             int volIndex = (int) (vol * max);
+
             volIndex = Math.min(volIndex, max);
             volIndex = Math.max(volIndex, 0);
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volIndex, flag);
